@@ -46,3 +46,78 @@
     Seen while reading through code
     Should be consisten to prevent errors
     Low priority
+
+4. Test-Driven Development
+  Feature #1: Task Editing
+    Failure example: NameError: name 'edit_task' is not defined
+      def edit_task(task_id, updated_task):
+        """
+        Edit an existing task.
+
+        Args:
+            task_id (int): ID of the task to edit.
+            updated_task (dict): Dictionary containing the updated task information.
+        """
+        tasks = load_tasks()
+        for i, task in enumerate(tasks):
+            if task["id"] == task_id:
+                tasks[i] = updated_task
+                save_tasks(tasks)
+                return
+        raise ValueError(f"Task with id {task_id} not found.") #error handling
+    Now runs correctly when called
+    No refactoring needed for this feature
+
+  Feature #2: Further developed sorting
+    Failure example: NameError: name 'sort_tasks' is not defined
+      def sort_tasks(tasks, sort_by="due_date"):
+          """
+          Sort tasks by a given criteria.
+  
+          Args:
+              tasks (list): List of tasks to sort.
+              sort_by (str): Criteria to sort by (e.g., "due_date", "priority", "category").
+
+          Returns:
+              list: Sorted list of tasks.
+          """
+          if not tasks:
+              return []
+          if sort_by == "due_date":
+              return sorted(tasks, key=lambda x: datetime.strptime(x["due_date"], "%Y-%m-%d"))
+          elif sort_by == "priority":
+              priority_order = {"High": 1, "Medium": 2, "Low": 3}
+              return sorted(tasks, key=lambda x: priority_order[x["priority"]])
+          elif sort_by == "category":
+              return sorted(tasks, key=lambda x: x["category"])
+          else:
+              raise ValueError(f"Invalid sort_by value: {sort_by}")
+    Now runs correctly when called
+    Refactoring to better handle errors and include more sorting options
+
+  Feature #3: 
+    Failure: Again a name error as it had not been defined yet
+    def create_recurring_tasks(task, instances):
+        """
+        Creates recurring tasks based on the given task and number of instances.
+
+        Args:
+            task (dict): The base task.
+            instances (int): The number of recurring task instances to create.
+
+        Returns:
+            list: A list of recurring task dictionaries.
+        """
+        recurring_tasks = []
+        base_date = datetime.strptime(task["due_date"], "%Y-%m-%d")
+
+        for i in range(instances):
+            new_date = base_date + timedelta(days=i)
+            new_task = task.copy()
+            new_task["id"] = generate_unique_id([]) + i
+            new_task["due_date"] = new_date.strftime("%Y-%m-%d")
+            new_task["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            recurring_tasks.append(new_task)
+        return recurring_tasks
+    Now runs correctly when called
+    Can be refactored into handling different repetitions, i.e. monthly and weekly, or custom scheduling all together
