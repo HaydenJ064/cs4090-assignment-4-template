@@ -2,7 +2,7 @@ import streamlit as st
 import subprocess
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # File path for task storage (moved to top for global access)
 DEFAULT_TASKS_FILE = "tasks.json"
@@ -89,7 +89,7 @@ def filter_tasks_by_completion(tasks, completed=True):
     Returns:
         list: Filtered list of tasks matching the completion status
     """
-    return [task for task in tasks if task.get("completed") == completed]
+    return [task for task in tasks if task.get("completed", False) == completed]
 
 def search_tasks(tasks, query):
     """
@@ -112,19 +112,77 @@ def search_tasks(tasks, query):
 def get_overdue_tasks(tasks):
     """
     Get tasks that are past their due date and not completed.
-
-    Args:
-        tasks (list): List of task dictionaries
-
-    Returns:
-        list: List of overdue tasks
     """
     today = datetime.now().strftime("%Y-%m-%d")
     return [
         task for task in tasks
         if not task.get("completed", False) and
-            task.get("due_date", "") < today
+        task.get("due_date", "") < today
     ]
+
+def edit_task(task_id, updated_task):
+    """
+    Edit an existing task.
+
+    Args:
+        task_id (int): ID of the task to edit.
+        updated_task (dict): Dictionary containing the updated task information.
+    Raises:
+        ValueError: If the task with the given ID is not found.
+    """
+    tasks = load_tasks()
+    for i, task in enumerate(tasks):
+        if task["id"] == task_id:
+            tasks[i].update(updated_task) #update the task
+            save_tasks(tasks)
+            return
+    raise ValueError(f"Task with id {task_id} not found.")
+
+def sort_tasks(tasks, sort_by="due_date"):
+    """
+    Sort tasks by a given criteria.
+
+    Args:
+        tasks (list): List of tasks to sort.
+        sort_by (str): Criteria to sort by (e.g., "due_date", "priority", "category").
+
+    Returns:
+        list: Sorted list of tasks.
+    """
+    if not tasks:
+        return []
+    if sort_by == "due_date":
+        return sorted(tasks, key=lambda x: datetime.strptime(x["due_date"], "%Y-%m-%d"))
+    elif sort_by == "priority":
+        priority_order = {"High": 1, "Medium": 2, "Low": 3}
+        return sorted(tasks, key=lambda x: priority_order[x["priority"]])
+    elif sort_by == "category":
+        return sorted(tasks, key=lambda x: x["category"])
+    else:
+        raise ValueError(f"Invalid sort_by value: {sort_by}")
+
+def create_recurring_tasks(task, instances):
+    """
+    Creates recurring tasks based on the given task and number of instances.
+
+    Args:
+        task (dict): The base task.
+        instances (int): The number of recurring task instances to create.
+
+    Returns:
+        list: A list of recurring task dictionaries.
+    """
+    recurring_tasks = []
+    base_date = datetime.strptime(task["due_date"], "%Y-%m-%d")
+
+    for i in range(instances):
+        new_date = base_date + timedelta(days=i)
+        new_task = task.copy()
+        new_task["id"] = generate_unique_id([]) + i
+        new_task["due_date"] = new_date.strftime("%Y-%m-%d")
+        new_task["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        recurring_tasks.append(new_task)
+    return recurring_tasks
 
 def main():
     st.title("To-Do Application")
@@ -142,6 +200,8 @@ def main():
         task_priority = st.selectbox("Priority", ["Low", "Medium", "High"])
         task_category = st.selectbox("Category", ["Work", "Personal", "School", "Other"])
         task_due_date = st.date_input("Due Date")
+        task_recurrence = st.selectbox("Recurrence", [None, "daily", "weekly", "monthly"])
+        task_instances = st.number_input("Number of recurrences", min_value=1, value=1) # added number of instances
         submit_button = st.form_submit_button("Add Task")
 
         if submit_button and task_title:
@@ -153,9 +213,14 @@ def main():
                 "category": task_category,
                 "due_date": task_due_date.strftime("%Y-%m-%d"),
                 "completed": False,
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "recurrence": task_recurrence
             }
-            tasks.append(new_task)
+            if task_recurrence:
+                recurring_tasks = create_recurring_tasks(new_task, task_instances)
+                tasks.extend(recurring_tasks)
+            else:
+                tasks.append(new_task)
             save_tasks(tasks)
             st.sidebar.success("Task added successfully!")
 
@@ -163,12 +228,20 @@ def main():
     st.header("Your Tasks")
 
     # Filter options
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3) # Added a new column for sorting
     with col1:
-        filter_category = st.selectbox("Filter by Category", ["All"] + list(set([task["category"] for task in tasks])))
+        # Ensure tasks is not empty before trying to extract categories
+        categories = ["All"]
+        if tasks:
+            unique_categories = list(set(task.get("category", "Other") for task in tasks))  # Use get()
+            categories.extend(unique_categories)
+        filter_category = st.selectbox("Filter by Category", categories)
+
+
     with col2:
         filter_priority = st.selectbox("Filter by Priority", ["All", "High", "Medium", "Low"])
-
+    with col3:
+        sort_by = st.selectbox("Sort by", ["Due Date", "Priority", "Category"]) #added sort by
     show_completed = st.checkbox("Show Completed Tasks")
 
     # Apply filters
@@ -177,27 +250,47 @@ def main():
         filtered_tasks = filter_tasks_by_category(filtered_tasks, filter_category)
     if filter_priority != "All":
         filtered_tasks = filter_tasks_by_priority(filtered_tasks, filter_priority)
-    if not show_completed:
-        filtered_tasks = [task for task in filtered_tasks if not task["completed"]]
+    filtered_tasks = [task for task in filtered_tasks if not task.get("completed", False)] # Fix the filtering
+    # Apply sorting
+    if sort_by == "Due Date":
+        filtered_tasks = sort_tasks(filtered_tasks, "due_date")
+    elif sort_by == "Priority":
+        filtered_tasks = sort_tasks(filtered_tasks, "priority")
+    elif sort_by == "Category":
+        filtered_tasks = sort_tasks(filtered_tasks, "category")
 
     # Display tasks
     for task in filtered_tasks:
         col1, col2 = st.columns([4, 1])
         with col1:
-            if task["completed"]:
+            if task.get("completed"):
                 st.markdown(f"~~**{task['title']}**~~")
             else:
                 st.markdown(f"**{task['title']}**")
             # Use get() with a default value to avoid KeyError
-            st.write(task.get("description", ""))  
-            st.caption(f"Due: {task['due_date']} | Priority: {task['priority']} | Category: {task['category']}")
+            st.write(task.get("description", ""))
+            st.caption(f"Due: {task.get('due_date', 'N/A')} | Priority: {task.get('priority', 'N/A')} | Category: {task.get('category', 'N/A')}")
         with col2:
-            if st.button("Complete" if not task["completed"] else "Undo", key=f"complete_{task['id']}"):
+            if st.button("Complete" if not task.get("completed",False) else "Undo", key=f"complete_{task['id']}"):
                 for t in tasks:
                     if t["id"] == task["id"]:
-                        t["completed"] = not t["completed"]
+                        t["completed"] = not t.get("completed",False)
                         save_tasks(tasks)
                         st.rerun()
+            if st.button("Edit", key=f"edit_{task['id']}"): #added edit button
+                edited_task_data = {
+                    "id": task["id"],
+                    "title": st.text_input("Title", value=task["title"], key=f"edit_title_{task['id']}"),
+                    "description": st.text_area("Description", value=task["description"], key=f"edit_description_{task['id']}"),
+                    "priority": st.selectbox("Priority", ["Low", "Medium", "High"], index=["Low", "Medium", "High"].index(task["priority"]), key=f"edit_priority_{task['id']}"),
+                    "category": st.selectbox("Category", ["Work", "Personal", "School", "Other"], index=["Work", "Personal", "School", "Other"].index(task["category"]), key=f"edit_category_{task['id']}"),
+                    "due_date": st.date_input("Due Date", value=datetime.strptime(task["due_date"], "%Y-%m-%d"), key=f"edit_due_date_{task['id']}").strftime("%Y-%m-%d"),
+                    "completed": task.get("completed",False),
+                    "created_at": task["created_at"]
+                }
+                edit_task(task["id"], edited_task_data)
+                save_tasks(tasks)
+                st.rerun()
             if st.button("Delete", key=f"delete_{task['id']}"):
                 tasks = [t for t in tasks if t["id"] != task["id"]]
                 save_tasks(tasks)
