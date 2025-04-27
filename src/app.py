@@ -369,8 +369,35 @@ def main():
         except Exception as ex:
             st.error(f"Error displaying the HTML report: {ex}")
 
-    # Add buttons for running pytest functions
-    st.sidebar.header("Run Pytest")
+    # BDD Test Execution
+    def run_bdd_tests():
+        """Runs the BDD tests using the 'behave' command."""
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            result = subprocess.run(
+                ["behave", "features"],  #  Run 'behave' in the 'features' directory
+                cwd=script_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            st.code(result.stdout)
+            st.success("BDD tests executed successfully!")
+        except subprocess.CalledProcessError as e:
+            error_message = (
+                f"Error running BDD tests:\n"
+                f"  Command: {' '.join(e.cmd)}\n"
+                f"  Return Code: {e.returncode}\n"
+                f"  Standard Output:\n{e.stdout}\n"
+                f"  Standard Error:\n{e.stderr}"
+            )
+            st.error(error_message)
+        except FileNotFoundError:
+            st.error("Behave is not installed or not found in the system's PATH. Please install it using 'pip install behave' and ensure it is correctly configured.")
+
+    # Add a button to run BDD tests
+    st.sidebar.header("Run Tests")
+    st.sidebar.button("Run BDD Tests", on_click=run_bdd_tests) # Added BDD test button
     st.sidebar.button("Run Coverage Test", on_click=run_pytest_coverage)
     st.sidebar.button("Run Parameterized Test", on_click=run_pytest_parameterized)
     st.sidebar.button("Run Mocking Test", on_click=run_pytest_mocking)
