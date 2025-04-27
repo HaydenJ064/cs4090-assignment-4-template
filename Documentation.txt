@@ -15,3 +15,34 @@
   The added button works similary to run the tests over main where it can be seen that 7/8 pass them
   The coverage was met by making sure to hit as many possible cases so that as many lines as possible would be ran
   In code documentation aims to have names for functions be as clear as possible to make changes easier as they are needed
+
+2. Bug Reporting and fixing
+  Bug #1
+    Unique IDs are not generated in a thorough manner, instead just using their current index.
+    Can be recreated by deleting and readding new tasks.
+    It would be expected for each task to still be unique if others are removed
+    High priority
+
+  Bug #2
+    Datetime handling was done purely as strings, causing issues over longer periods of time
+    Seen while reading through code
+    It would be expected for them to be stored as datetime objects
+    Med priority
+
+  Bug #3
+    JSON decoding didnt offer any error messages
+    Found when messing with json outside of the app
+    Interacting with data should have more clear error messages
+    Low priority
+
+  Bug #4
+    Input validation for the title of a task
+    No validation on the input led to bugs
+    Should make sure that all input given is safe
+    Med priority
+
+  Bug #5
+    Get was inconsistently used
+    Seen while reading through code
+    Should be consisten to prevent errors
+    Low priority
