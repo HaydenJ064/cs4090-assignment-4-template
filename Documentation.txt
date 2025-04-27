@@ -1,0 +1,17 @@
+1. Unit Testing
+  ==================================================== tests coverage ====================================================
+  ___________________________________ coverage: platform linux, python 3.12.3-final-0 ____________________________________
+
+  Name            Stmts   Miss  Cover
+  -----------------------------------
+  app.py             60     60     0%
+  tasks.py           31      3    90%
+  test_tasks.py      64      1    98%
+  -----------------------------------
+  TOTAL             155     64    59%
+
+  Here is what comes when pytest -v --cov=. test_tasks.py, to show the total coverage over each section of code, where the test_tasks.py is the coverage for app.py as running tests while the streamlit app is running is much more complex
+  The process was primarily just adding more tests to each file with asserts to make sure the output matched expectation
+  The added button works similary to run the tests over main where it can be seen that 7/8 pass them
+  The coverage was met by making sure to hit as many possible cases so that as many lines as possible would be ran
+  In code documentation aims to have names for functions be as clear as possible to make changes easier as they are needed
