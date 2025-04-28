@@ -3,6 +3,9 @@ import subprocess
 import os
 import json
 from datetime import datetime, timedelta
+from hypothesis import given, strategies as st_data
+from hypothesis import example
+import sys  # Import the sys module
 
 # File path for task storage (moved to top for global access)
 DEFAULT_TASKS_FILE = "tasks.json"
@@ -374,8 +377,9 @@ def main():
         """Runs the BDD tests using the 'behave' command."""
         try:
             script_dir = os.path.dirname(os.path.abspath(__file__))
+            features_dir = os.path.join(script_dir, "features")  # Construct the full path
             result = subprocess.run(
-                ["behave", "features"],  #  Run 'behave' in the 'features' directory
+                ["behave", features_dir],
                 cwd=script_dir,
                 capture_output=True,
                 text=True,
@@ -403,5 +407,85 @@ def main():
     st.sidebar.button("Run Mocking Test", on_click=run_pytest_mocking)
     st.sidebar.button("Generate HTML Report", on_click=run_pytest_html_report)
 
-if __name__ == "__main__":
+
+    # Hypothesis tests
+    def run_hypothesis_tests(): # Removed the st.cache_data decorator
+        """
+        Runs property-based tests using Hypothesis and displays the results.
+        """
+        results = []
+        st.write("Running Hypothesis tests...") #prints
+        print("Starting Hypothesis tests...")  # Add this print statement
+
+        try:
+            # Example 1: Test that the task title is always a string
+            @given(st_data.text())
+            @example(s="")
+            def test_task_title_is_string(s):
+                print(f"Running test_task_title_is_string with s = {s}")  # Add print
+                assert isinstance(s, str)
+                result_string = f"Test: Task title is string - Passed for: {s}"
+                results.append(result_string)
+                return result_string
+
+            # Example 2: Test that the task description is always a string
+            @given(st_data.text())
+            @example(s="")
+            def test_task_description_is_string(s):
+                print(f"Running test_task_description_is_string with s = {s}") # Add Print
+                assert isinstance(s, str)
+                result_string = f"Test: Task description is string - Passed for: {s}"
+                results.append(result_string)
+                return result_string
+
+            # Example 3: Test task priority is one of "High", "Medium", or "Low"
+            @given(st_data.sampled_from(["High", "Medium", "Low"]))
+            def test_task_priority_valid(p):
+                print(f"Running test_task_priority_valid with p = {p}") # Add Print
+                assert p in ["High", "Medium", "Low"]
+                result_string = f"Test: Task priority is valid - Passed for: {p}"
+                results.append(result_string)
+                return result_string
+
+            # Example 4: Test that the filter function returns a subset of the original tasks
+            @given(st_data.lists(st_data.dictionaries(st_data.text(), st_data.text())))
+            def test_filter_tasks_by_category_subset(tasks):
+                print(f"Running test_filter_tasks_by_category_subset with tasks = {tasks}") # Add Print
+                if not tasks:
+                    return
+                category = tasks[0].get("category")  # Use get to avoid KeyError
+                filtered = filter_tasks_by_category(tasks, category)
+                assert all(task in tasks for task in filtered)
+                result_string = f"Test: Filtered tasks are subset - Passed for category: {category}"
+                results.append(result_string)
+                return result_string
+
+            # Example 5:  Check that generate_unique_id generates unique IDs
+            @given(st_data.lists(st_data.dictionaries(st_data.text(), st_data.text())))
+            def test_generate_unique_id_is_unique(task_list):
+                print(f"Running test_generate_unique_id_is_unique with task_list = {task_list}") # Add Print
+                ids = [generate_unique_id(task_list + [{"id": i}]) for i in range(5)] # Generate 5 new IDs
+                assert len(ids) == len(set(ids)) # Check for uniqueness
+                result_string = "Test: Generate unique IDs - Passed"
+                results.append(result_string)
+                return result_string
+        except Exception as e:
+            error_string = f"Error: {e}"
+            print(f"An error occurred during Hypothesis tests: {e}")  # Print any exceptions
+            results.append(error_string)
+            return results
+
+        print("Finished running Hypothesis tests.")
+        return results
+
+    if st.sidebar.button("Run Hypothesis Tests"):
+        hypothesis_results = run_hypothesis_tests()
+        if hypothesis_results:  # Check if hypothesis_results is not empty
+            st.write("Hypothesis Test Results:")
+            for result in hypothesis_results:
+                st.write(result)
+        else:
+            st.write("No Hypothesis tests were run or no results were generated.")
+
+if __name__ == '__main__':
     main()
