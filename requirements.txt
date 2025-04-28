@@ -5,4 +5,5 @@ pytest-cov
 pytest-html
 pytest-xdist
 pytest-bdd
+behave
 hypothesis
